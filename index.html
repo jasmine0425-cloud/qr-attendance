@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>심화반 QR 관리 시스템</title>
+
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, "Noto Sans KR", sans-serif;
+      background: #f4f6f8;
+      color: #222;
+    }
+    button, input, select { font-family: inherit; }
+
+    .topbar {
+      background: white;
+      border-bottom: 1px solid #ddd;
+      padding: 14px 18px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+    .brand { font-size: 21px; font-weight: 700; }
+    .tabs { display: flex; gap: 8px; }
+    .tab {
+      border: 0;
+      border-radius: 10px;
+      padding: 12px 18px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      background: #e9ecef;
+    }
+    .tab.active { background: #222; color: white; }
+
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* 출입 처리 */
+    .attendance-wrap {
+      width: 100%;
+      max-width: 620px;
+      margin: 0 auto;
+      padding: 18px;
+      text-align: center;
+    }
+    h1 { margin-top: 20px; font-size: 30px; }
+    .subtitle { margin-bottom: 25px; color: #666; font-size: 16px; }
+    #statusText {
+      margin: 18px 0;
+      padding: 16px;
+      background: white;
+      border-radius: 14px;
+      font-size: 19px;
+      font-weight: 700;
+    }
+    #modeBox { margin-top: 25px; }
+    .modeTitle { margin-bottom: 20px; font-size: 21px; font-weight: 700; }
+    .modeButtons { display: flex; gap: 15px; }
+    .modeButton {
+      flex: 1;
+      min-height: 120px;
+      border: 0;
+      border-radius: 18px;
+      color: white;
+      font-size: 30px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    #selectIn { background: #20a464; }
+    #selectOut { background: #e14b4b; }
+    .modeButton:active { transform: scale(.98); }
+
+    #scannerBox { display: none; }
+    #selectedMode {
+      margin: 20px 0 10px;
+      padding: 16px;
+      border-radius: 14px;
+      font-size: 24px;
+      font-weight: 700;
+    }
+    .mode-in { background: #e7f7ef; color: #147744; }
+    .mode-out { background: #fdecec; color: #b72f2f; }
+    #reader {
+      width: 100%;
+      max-width: 520px;
+      margin: 15px auto;
+      overflow: hidden;
+      border-radius: 18px;
+      background: #111;
+    }
+    .cameraControls {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 15px;
+      flex-wrap: wrap;
+    }
+    .cameraButton {
+      padding: 14px 20px;
+      border: 0;
+      border-radius: 12px;
+      font-size: 17px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    #switchCameraButton { background: #444; color: white; }
+    #cancelButton { background: #ddd; color: #222; }
+
+    #resultBox {
+      display: none;
+      margin-top: 25px;
+      padding: 35px 22px;
+      background: white;
+      border-radius: 18px;
+      box-shadow: 0 4px 18px rgba(0,0,0,.08);
+    }
+    #resultIcon { font-size: 45px; }
+    #resultTitle { margin: 12px 0; font-size: 30px; font-weight: 700; }
+    #resultStudent { margin-top: 15px; font-size: 24px; font-weight: 700; }
+    #resultInfo { margin-top: 10px; color: #555; font-size: 18px; line-height: 1.7; }
+    #errorBox {
+      display: none;
+      margin-top: 20px;
+      padding: 18px;
+      background: #fff0f0;
+      color: #c92a2a;
+      border-radius: 12px;
+      font-size: 16px;
+    }
+
+    /* QR 관리 */
+    .manager-wrap {
+      width: 100%;
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 22px;
+    }
+    .manager-panel {
+      background: white;
+      border-radius: 16px;
+      padding: 18px;
+      margin-bottom: 18px;
+    }
+    .filter-row, .action-row {
+      display: flex;
+      gap: 9px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .filter-row select, .filter-row input {
+      min-height: 44px;
+      border: 1px solid #ccc;
+      border-radius: 9px;
+      padding: 8px 12px;
+      font-size: 16px;
+    }
+    #studentSearch { flex: 1; min-width: 210px; }
+    .manager-btn {
+      min-height: 44px;
+      padding: 10px 16px;
+      border: 0;
+      border-radius: 9px;
+      background: #e9ecef;
+      color: #222;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .manager-btn.primary { background: #333; color: white; }
+    .manager-btn.pdf { background: #3158a8; color: white; }
+    .manager-btn.print { background: #147744; color: white; }
+
+    #studentCount { margin-top: 14px; color: #555; font-weight: 700; }
+    #studentList {
+      margin-top: 14px;
+      max-height: 420px;
+      overflow: auto;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+    }
+    .studentRow {
+      display: grid;
+      grid-template-columns: 42px 90px 1fr 85px 75px 110px;
+      gap: 8px;
+      align-items: center;
+      padding: 11px;
+      border-bottom: 1px solid #eee;
+    }
+    .studentRow:last-child { border-bottom: 0; }
+    .studentRow:hover { background: #f7f8fa; }
+    .studentRow input { width: 20px; height: 20px; }
+    .action-row { margin-top: 15px; }
+    #managerMessage { margin-top: 14px; min-height: 24px; font-weight: 700; }
+
+    #qrPrintArea {
+      margin-top: 22px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .qr-card {
+      background: white;
+      border: 1px solid #bbb;
+      border-radius: 12px;
+      padding: 16px;
+      min-height: 330px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    .qr-code {
+      width: 180px;
+      min-height: 180px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 12px;
+    }
+    .qr-code img, .qr-code canvas {
+      width: 180px !important;
+      height: 180px !important;
+    }
+    .qr-name { font-size: 21px; font-weight: 700; margin-top: 5px; }
+    .qr-no { margin-top: 5px; font-size: 17px; }
+    .qr-id { margin-top: 5px; color: #666; font-size: 14px; }
+
+    @media(max-width: 760px) {
+      .topbar { align-items: stretch; }
+      .tabs { width: 100%; }
+      .tab { flex: 1; }
+      .modeButton { min-height: 105px; font-size: 27px; }
+      .studentRow { grid-template-columns: 35px 80px 1fr; }
+      .student-extra { display: none; }
+      #qrPrintArea { grid-template-columns: 1fr; }
+    }
+
+    @media print {
+      @page { size: A4 portrait; margin: 8mm; }
+      body * { visibility: hidden !important; }
+      #qrPrintArea, #qrPrintArea * { visibility: visible !important; }
+      #qrPrintArea {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 4mm;
+        margin: 0;
+      }
+      .qr-card {
+        border: 1px solid #777;
+        border-radius: 4mm;
+        padding: 4mm;
+        min-height: 82mm;
+      }
+      .qr-code {
+        width: 42mm;
+        min-height: 42mm;
+      }
+      .qr-code img, .qr-code canvas {
+        width: 42mm !important;
+        height: 42mm !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="topbar">
+    <div class="brand">심화반 QR 관리 시스템</div>
+    <div class="tabs">
+      <button id="attendanceTab" class="tab active" onclick="switchPage('attendance')">출입 처리</button>
+      <button id="managerTab" class="tab" onclick="switchPage('manager')">QR 관리</button>
+    </div>
+  </div>
+
+  <section id="attendancePage" class="page active">
+    <div class="attendance-wrap">
+      <h1>심화반 QR 입·퇴실</h1>
+      <div class="subtitle">입실 또는 퇴실을 선택한 뒤 개인 QR코드를 인식해주세요.</div>
+
+      <div id="statusText">입실 또는 퇴실을 선택해주세요.</div>
+
+      <div id="modeBox">
+        <div class="modeTitle">무엇을 하시겠습니까?</div>
+        <div class="modeButtons">
+          <button id="selectIn" class="modeButton" onclick="selectMode('IN')">🟢<br>입실</button>
+          <button id="selectOut" class="modeButton" onclick="selectMode('OUT')">🔴<br>퇴실</button>
+        </div>
+      </div>
+
+      <div id="scannerBox">
+        <div id="selectedMode"></div>
+        <div id="reader"></div>
+        <div class="cameraControls">
+          <button id="switchCameraButton" class="cameraButton" onclick="switchCamera()">🔄 카메라 전환</button>
+          <button id="cancelButton" class="cameraButton" onclick="cancelScan()">취소</button>
+        </div>
+      </div>
+
+      <div id="resultBox">
+        <div id="resultIcon"></div>
+        <div id="resultTitle"></div>
+        <div id="resultStudent"></div>
+        <div id="resultInfo"></div>
+      </div>
+
+      <div id="errorBox"></div>
+    </div>
+  </section>
+
+  <section id="managerPage" class="page">
+    <div class="manager-wrap">
+      <h1>학생 QR 관리</h1>
+      <div class="subtitle">Google Sheet 학생 명단에서 QR코드를 생성하고 PDF 저장 또는 바로 인쇄합니다.</div>
+
+      <div class="manager-panel">
+        <div class="filter-row">
+          <select id="gradeFilter" onchange="onGradeChange()">
+            <option value="">전체 학년</option>
+            <option value="1">1학년</option>
+            <option value="2">2학년</option>
+            <option value="3">3학년</option>
+          </select>
+
+          <select id="classFilter" onchange="renderStudentList()">
+            <option value="">전체 반</option>
+          </select>
+
+          <input id="studentSearch" type="search" placeholder="이름 · 학번 · QR ID 검색" oninput="renderStudentList()">
+
+          <button class="manager-btn" onclick="loadStudents()">새로고침</button>
+        </div>
+
+        <div id="studentCount">학생 명단을 불러오지 않았습니다.</div>
+        <div id="studentList"></div>
+
+        <div class="action-row">
+          <button class="manager-btn" onclick="selectVisibleStudents()">현재 목록 전체 선택</button>
+          <button class="manager-btn" onclick="clearSelection()">선택 해제</button>
+          <button class="manager-btn primary" onclick="generateSelectedQRCards()">QR 생성</button>
+          <button class="manager-btn pdf" onclick="savePDF()">PDF 저장</button>
+          <button class="manager-btn print" onclick="printQRCards()">🖨️ 인쇄</button>
+        </div>
+
+        <div id="managerMessage"></div>
+      </div>
+
+      <div id="qrPrintArea"></div>
+    </div>
+  </section>
+
+
+  <script>
+    const APPS_SCRIPT_URL =
+      "https://script.google.com/macros/s/AKfycbyK5kvtWYRZa-4mVv_YGljLFi0CvxDrhzsy1Uu8EOF8mrHdxnQHtUz4Abrh_8-YgsYk/exec";
+
+    let qrScanner = null;
+    let selectedType = null;
+    let currentFacingMode = "environment";
+    let scannerRunning = false;
+    let processing = false;
+
+    let allStudents = [];
+    const selectedStudents = new Set();
+
+    async function switchPage(page) {
+      if (page === "manager") {
+        await stopScanner();
+        document.getElementById("attendancePage").classList.remove("active");
+        document.getElementById("managerPage").classList.add("active");
+        document.getElementById("attendanceTab").classList.remove("active");
+        document.getElementById("managerTab").classList.add("active");
+        if (allStudents.length === 0) loadStudents();
+      } else {
+        document.getElementById("managerPage").classList.remove("active");
+        document.getElementById("attendancePage").classList.add("active");
+        document.getElementById("managerTab").classList.remove("active");
+        document.getElementById("attendanceTab").classList.add("active");
+      }
+    }
+
+    async function selectMode(type) {
+      if (processing) return;
+
+      selectedType = type;
+      hideError();
+
+      document.getElementById("modeBox").style.display = "none";
+      document.getElementById("scannerBox").style.display = "block";
+
+      const modeLabel = document.getElementById("selectedMode");
+
+      if (type === "IN") {
+        modeLabel.className = "mode-in";
+        modeLabel.innerText = "🟢 입실 처리";
+      } else {
+        modeLabel.className = "mode-out";
+        modeLabel.innerText = "🔴 퇴실 처리";
+      }
+
+      setStatus("개인 QR코드를 카메라에 보여주세요.");
+      await startCamera();
+    }
+
+    async function startCamera() {
+      try {
+        if (!qrScanner) {
+          qrScanner = new Html5Qrcode("reader", {
+            formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE]
+          });
+        }
+
+        await qrScanner.start(
+          { facingMode: currentFacingMode },
+          {
+            fps: 12,
+            qrbox: function(width, height) {
+              const size = Math.min(width, height) * 0.72;
+              return { width: size, height: size };
+            }
+          },
+          qrSuccess,
+          function() {}
+        );
+
+        scannerRunning = true;
+
+      } catch (error) {
+        console.error(error);
+        showError("카메라를 실행할 수 없습니다.<br><br>" + String(error));
+        setStatus("카메라 실행에 실패했습니다.");
+      }
+    }
+
+    function qrSuccess(decodedText) {
+      if (processing || !selectedType) return;
+
+      const qrId = String(decodedText || "").trim();
+      if (!qrId) return;
+
+      processing = true;
+      setStatus("학생 정보를 확인하고 있습니다...");
+
+      try {
+        qrScanner.pause(true);
+      } catch (error) {
+        console.log(error);
+      }
+
+      processAttendance(qrId, selectedType);
+    }
+
+    function processAttendance(qrId, type) {
+      setStatus(type === "IN" ? "입실 처리 중입니다..." : "퇴실 처리 중입니다...");
+
+      jsonp(
+        { action: "attendance", qrId: qrId, type: type },
+        function(data) {
+          if (!data.success) {
+            showError(data.message || "처리할 수 없습니다.");
+            setStatus("처리할 수 없습니다.");
+            setTimeout(returnToScanner, 1800);
+            return;
+          }
+
+          showResult(data);
+        },
+        function() {
+          showError("Apps Script 서버와 연결하지 못했습니다.");
+          setTimeout(returnToScanner, 1800);
+        }
+      );
+    }
+
+    async function showResult(data) {
+      await stopScanner();
+
+      document.getElementById("scannerBox").style.display = "none";
+      document.getElementById("resultIcon").innerText = "✅";
+      document.getElementById("resultTitle").innerText =
+        data.type === "IN" ? "입실 완료" : "퇴실 완료";
+      document.getElementById("resultStudent").innerText =
+        data.name + " 학생";
+      document.getElementById("resultInfo").innerHTML =
+        String(data.studentNo || "") + "<br>" +
+        String(data.time || "") + "<br><br>" +
+        (data.type === "IN"
+          ? "입실 처리가 완료되었습니다."
+          : "퇴실 처리가 완료되었습니다.");
+
+      document.getElementById("resultBox").style.display = "block";
+      setStatus("처리가 완료되었습니다.");
+      setTimeout(resetSystem, 2000);
+    }
+
+    async function switchCamera() {
+      if (!qrScanner || !scannerRunning || processing) return;
+
+      const button = document.getElementById("switchCameraButton");
+      button.disabled = true;
+      setStatus("카메라를 전환하고 있습니다...");
+
+      try {
+        await qrScanner.stop();
+        scannerRunning = false;
+
+        currentFacingMode =
+          currentFacingMode === "environment" ? "user" : "environment";
+
+        await startCamera();
+
+        setStatus(
+          currentFacingMode === "environment"
+            ? "후면 카메라입니다. QR코드를 보여주세요."
+            : "전면 카메라입니다. QR코드를 보여주세요."
+        );
+      } catch (error) {
+        console.error(error);
+        showError("카메라 전환에 실패했습니다.");
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    async function stopScanner() {
+      try {
+        if (qrScanner && scannerRunning) {
+          await qrScanner.stop();
+        }
+      } catch (error) {
+        console.log(error);
+      }
+      scannerRunning = false;
+    }
+
+    async function cancelScan() {
+      await stopScanner();
+      await resetSystem();
+    }
+
+    function returnToScanner() {
+      processing = false;
+      hideError();
+      setStatus("QR코드를 다시 인식해주세요.");
+
+      try {
+        if (scannerRunning) qrScanner.resume();
+      } catch (error) {
+        console.log(error);
+      }
+    }
+
+    async function resetSystem() {
+      await stopScanner();
+
+      processing = false;
+      selectedType = null;
+
+      document.getElementById("scannerBox").style.display = "none";
+      document.getElementById("resultBox").style.display = "none";
+      document.getElementById("modeBox").style.display = "block";
+
+      hideError();
+      setStatus("입실 또는 퇴실을 선택해주세요.");
+    }
+
+    function loadStudents() {
+      setManagerMessage("Google Sheet 학생 명단을 불러오는 중...");
+
+      jsonp(
+        { action: "getStudents" },
+        function(data) {
+          if (!data.success) {
+            setManagerMessage(data.message || "학생 명단을 불러오지 못했습니다.");
+            return;
+          }
+
+          allStudents = data.students || [];
+          rebuildClassFilter();
+          renderStudentList();
+          setManagerMessage("학생 " + allStudents.length + "명을 불러왔습니다.");
+        },
+        function() {
+          setManagerMessage("학생 명단을 불러오지 못했습니다. Apps Script 배포 상태를 확인해주세요.");
+        }
+      );
+    }
+
+    function onGradeChange() {
+      rebuildClassFilter();
+      renderStudentList();
+    }
+
+    function rebuildClassFilter() {
+      const grade = document.getElementById("gradeFilter").value;
+      const select = document.getElementById("classFilter");
+      const current = select.value;
+
+      const classes = [...new Set(
+        allStudents
+          .filter(s => !grade || String(s.grade) === String(grade))
+          .map(s => String(s.classNo ?? "").trim())
+          .filter(Boolean)
+      )].sort((a, b) => Number(a) - Number(b));
+
+      select.innerHTML = '<option value="">전체 반</option>';
+
+      classes.forEach(classNo => {
+        const option = document.createElement("option");
+        option.value = classNo;
+        option.textContent = classNo + "반";
+        select.appendChild(option);
+      });
+
+      if (classes.includes(current)) select.value = current;
+    }
+
+    function getFilteredStudents() {
+      const grade = document.getElementById("gradeFilter").value;
+      const classNo = document.getElementById("classFilter").value;
+      const search = document.getElementById("studentSearch").value.trim().toLowerCase();
+
+      return allStudents.filter(student => {
+        if (grade && String(student.grade) !== String(grade)) return false;
+        if (classNo && String(student.classNo) !== String(classNo)) return false;
+
+        if (search) {
+          const haystack = [
+            student.name,
+            student.studentNo,
+            student.qrId
+          ].join(" ").toLowerCase();
+
+          if (!haystack.includes(search)) return false;
+        }
+
+        return true;
+      });
+    }
+
+    function renderStudentList() {
+      const list = document.getElementById("studentList");
+      const students = getFilteredStudents();
+      list.innerHTML = "";
+
+      students.forEach(student => {
+        const row = document.createElement("label");
+        row.className = "studentRow";
+
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = selectedStudents.has(student.qrId);
+
+        checkbox.addEventListener("change", function() {
+          if (checkbox.checked) {
+            selectedStudents.add(student.qrId);
+          } else {
+            selectedStudents.delete(student.qrId);
+          }
+          updateStudentCount();
+        });
+
+        const studentNo = document.createElement("div");
+        studentNo.textContent = student.studentNo;
+
+        const name = document.createElement("div");
+        name.textContent = student.name;
+
+        const gradeText = document.createElement("div");
+        gradeText.className = "student-extra";
+        gradeText.textContent = student.grade + "학년";
+
+        const classText = document.createElement("div");
+        classText.className = "student-extra";
+        classText.textContent = student.classNo + "반";
+
+        const qrText = document.createElement("div");
+        qrText.className = "student-extra";
+        qrText.textContent = student.qrId;
+
+        row.append(
+          checkbox,
+          studentNo,
+          name,
+          gradeText,
+          classText,
+          qrText
+        );
+
+        list.appendChild(row);
+      });
+
+      updateStudentCount();
+    }
+
+    function updateStudentCount() {
+      document.getElementById("studentCount").textContent =
+        "현재 목록 " + getFilteredStudents().length +
+        "명 / 선택 " + selectedStudents.size + "명";
+    }
+
+    function selectVisibleStudents() {
+      getFilteredStudents().forEach(student => {
+        selectedStudents.add(student.qrId);
+      });
+      renderStudentList();
+    }
+
+    function clearSelection() {
+      selectedStudents.clear();
+      renderStudentList();
+    }
+
+    function generateSelectedQRCards() {
+      const selected = allStudents.filter(student =>
+        selectedStudents.has(student.qrId)
+      );
+
+      if (selected.length === 0) {
+        setManagerMessage("QR을 만들 학생을 먼저 선택해주세요.");
+        return;
+      }
+
+      const area = document.getElementById("qrPrintArea");
+      area.innerHTML = "";
+
+      selected.forEach(student => {
+        const card = document.createElement("div");
+        card.className = "qr-card";
+
+        const qrDiv = document.createElement("div");
+        qrDiv.className = "qr-code";
+
+        const name = document.createElement("div");
+        name.className = "qr-name";
+        name.textContent = student.name;
+
+        const studentNo = document.createElement("div");
+        studentNo.className = "qr-no";
+        studentNo.textContent = "학번 " + student.studentNo;
+
+        const qrId = document.createElement("div");
+        qrId.className = "qr-id";
+        qrId.textContent = student.qrId;
+
+        card.append(qrDiv, name, studentNo, qrId);
+        area.appendChild(card);
+
+        new QRCode(qrDiv, {
+          text: String(student.qrId),
+          width: 180,
+          height: 180,
+          correctLevel: QRCode.CorrectLevel.M
+        });
+      });
+
+      setManagerMessage(selected.length + "명의 QR코드를 생성했습니다.");
+    }
+
+    async function savePDF() {
+      const cards = Array.from(
+        document.querySelectorAll("#qrPrintArea .qr-card")
+      );
+
+      if (cards.length === 0) {
+        setManagerMessage("먼저 QR 생성을 눌러주세요.");
+        return;
+      }
+
+      if (!window.jspdf || !window.html2canvas) {
+        setManagerMessage("PDF 라이브러리를 불러오지 못했습니다.");
+        return;
+      }
+
+      setManagerMessage("PDF를 만들고 있습니다...");
+
+      try {
+        const jsPDF = window.jspdf.jsPDF;
+        const pdf = new jsPDF("p", "mm", "a4");
+
+        const marginX = 8;
+        const marginY = 8;
+        const gapX = 4;
+        const gapY = 4;
+        const cols = 3;
+        const rows = 3;
+
+        const cardW =
+          (210 - marginX * 2 - gapX * (cols - 1)) / cols;
+
+        const cardH =
+          (297 - marginY * 2 - gapY * (rows - 1)) / rows;
+
+        for (let i = 0; i < cards.length; i++) {
+          if (i > 0 && i % 9 === 0) {
+            pdf.addPage();
+          }
+
+          const position = i % 9;
+          const col = position % 3;
+          const row = Math.floor(position / 3);
+
+          const canvas = await html2canvas(cards[i], {
+            scale: 2,
+            backgroundColor: "#ffffff"
+          });
+
+          const image = canvas.toDataURL("image/png");
+
+          const x = marginX + col * (cardW + gapX);
+          const y = marginY + row * (cardH + gapY);
+
+          pdf.addImage(
+            image,
+            "PNG",
+            x,
+            y,
+            cardW,
+            cardH
+          );
+        }
+
+        const now = new Date();
+
+        const filename =
+          "학생_QR_" +
+          now.getFullYear() + "-" +
+          String(now.getMonth() + 1).padStart(2, "0") + "-" +
+          String(now.getDate()).padStart(2, "0") +
+          ".pdf";
+
+        pdf.save(filename);
+        setManagerMessage("PDF 저장이 완료되었습니다.");
+
+      } catch (error) {
+        console.error(error);
+        setManagerMessage("PDF 생성 중 오류가 발생했습니다.");
+      }
+    }
+
+    function printQRCards() {
+      const cards =
+        document.querySelectorAll("#qrPrintArea .qr-card");
+
+      if (cards.length === 0) {
+        setManagerMessage("먼저 QR 생성을 눌러주세요.");
+        return;
+      }
+
+      window.print();
+    }
+
+    function jsonp(parameters, successCallback, failureCallback) {
+      const callbackName =
+        "jsonpCallback_" +
+        Date.now() +
+        "_" +
+        Math.floor(Math.random() * 100000);
+
+      const script = document.createElement("script");
+      let cleaned = false;
+
+      function cleanup() {
+        if (cleaned) return;
+        cleaned = true;
+
+        clearTimeout(timeout);
+
+        if (script.parentNode) {
+          script.parentNode.removeChild(script);
+        }
+
+        try {
+          delete window[callbackName];
+        } catch (error) {}
+      }
+
+      const timeout = setTimeout(function() {
+        cleanup();
+        if (failureCallback) failureCallback();
+      }, 12000);
+
+      window[callbackName] = function(data) {
+        cleanup();
+        successCallback(data);
+      };
+
+      const query = new URLSearchParams({
+        ...parameters,
+        callback: callbackName
+      });
+
+      script.src =
+        APPS_SCRIPT_URL +
+        "?" +
+        query.toString();
+
+      script.onerror = function() {
+        cleanup();
+        if (failureCallback) failureCallback();
+      };
+
+      document.body.appendChild(script);
+    }
+
+    function setStatus(text) {
+      document.getElementById("statusText").innerText = text;
+    }
+
+    function showError(message) {
+      const box = document.getElementById("errorBox");
+      box.innerHTML = message;
+      box.style.display = "block";
+    }
+
+    function hideError() {
+      document.getElementById("errorBox").style.display = "none";
+    }
+
+    function setManagerMessage(text) {
+      document.getElementById("managerMessage").textContent = text;
+    }
+  </script>
+</body>
+</html>
